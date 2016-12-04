@@ -55,6 +55,8 @@ pub trait HasFramebuffer: HasTexture + Sized {
   fn default_framebuffer<D>(size: D::Size) -> Self::Framebuffer
     where D: Dimensionable,
           D::Size: Copy;
+  /// Copy the content of a framebuffer into another.
+  fn copy_framebuffer(source: &Self::Framebuffer, dest: &Self::Framebuffer);
 }
 
 /// Framebuffer error.
@@ -138,6 +140,10 @@ impl<C, L, D, CS, DS> Framebuffer<C, L, D, CS, DS>
         _d: PhantomData,
       }
     })
+  }
+
+  pub fn copy_into(&self, rhs: &Self) {
+    C::copy_framebuffer(&self.repr, &rhs.repr);
   }
 }
 

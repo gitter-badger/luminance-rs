@@ -129,6 +129,17 @@ impl HasFramebuffer for GL33 {
       h: D::height(size)
     }
   }
+
+  fn copy_framebuffer(source: &Self::Framebuffer, dest: &Self::Framebuffer) {
+    // use framebuffer blitting to perform fast copy
+    unsafe {
+      gl::BindFramebuffer(gl::READ_FRAMEBUFFER, source.handle);
+      gl::BindFramebuffer(gl::DRAW_FRAMEBUFFER, dest.handle);
+      gl::BlitFramebuffer(0, 0, source.w as i32 - 1, source.h as i32 - 1,
+                          0, 0, dest.w as i32 - 1, dest.h as i32 - 1,
+                          gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT, gl::NEAREST);
+    }
+  }
 }
 
 fn get_status() -> Option<String> {
