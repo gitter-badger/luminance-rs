@@ -21,12 +21,11 @@
 //!
 //! ## Components list
 //!
-//! As mentionned above, you can use tuples and structs as `Vertex`. If you look at the definition
-//! of `VertexFormat`, you’ll notice that it’s a `Vec<VertexComponentFormat>`. That means simple
-//! and primary types map to unit vectors – i.e. their size is 1 – but tuples and structs need
-//! several `VertexComponentFormat`s to be represented, hence vectors with sizes greater than 1. No
-//! check is made on how many vertex components you’re using – there’s a practical limit, set by the
-//! GPU, but it’s not checked (yet).
+//! As mentionned above, you can use tuples and structs as `Vertex`. Vertex formats are just static
+//! list of types. That means simple and primary types map to unit vectors – i.e. their size is 1 –
+//! but tuples and structs need several `VertexComponentFormat`s to be represented, hence arrays
+//! with sizes greater than 1. No check is made on how many vertex components you’re using – there’s
+//! a practical limit, set by the GPU, but it’s not unforced (yet).
 //!
 //! # Generic implementation
 //!
