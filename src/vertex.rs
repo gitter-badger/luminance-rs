@@ -43,15 +43,13 @@
 //! mapping your inner fields to a tuple or `GTup`, and call the right `Vertex` method on that
 //! tuple.
 
-use std::vec::Vec;
-
 use gtup::GTup;
 
 /// A `VertexFormat` is a list of `VertexComponentFormat`s.
-pub type VertexFormat = Vec<VertexComponentFormat>;
+pub type VertexFormat = &'static [VertexComponentFormat];
 
 /// Retrieve the number of components in a `VertexFormat`.
-pub fn vertex_format_size(vf: &[VertexComponentFormat]) -> usize {
+pub fn vertex_format_size(vf: VertexFormat) -> usize {
   vf.len()
 }
 
@@ -89,13 +87,18 @@ pub enum Dim {
   Dim4
 }
 
+/// A type that can be used as vertex component.
+pub trait VertexComponent {
+  const VERTEX_COMPONENT_FORMAT: VertexComponentFormat;
+}
+
 /// A type that can be used as a `Vertex` has to implement that trait – it must provide a mapping
 /// to `VertexFormat`.
 ///
 /// If you’re not sure on how to implement that or if you want to use automatic types, feel free
 /// to use the primary supported types and `GTup` or tuples.
 pub trait Vertex {
-  fn vertex_format() -> VertexFormat;
+  const VERTEX_FORMAT: VertexFormat;
 }
 
 /// A hint trait to implement to state whether a vertex type is compatible with another.
@@ -109,78 +112,124 @@ pub trait CompatibleVertex<V>: Vertex where V: Vertex  {}
 
 impl<V> CompatibleVertex<V> for V where V: Vertex {}
 
-/// Macro used to implement the `Vertex` trait.
-///
-/// The first form implements `Vertex` for `$t`. `$q` refers to the inner representation of `$t` –
-/// for instance, `[f32; N]` has `f32` as inner representation. `$comp_type` is the type of the
-/// component (variant of `Type`) and `$dim` is the dimension (variant of `Dim`).
-///
-/// The second form implement `Vertex` for `$t` for types that have the same inner representation
-/// than theirselves – usually, scalars.
-macro_rules! impl_base {
+macro_rules! vert_comp_format_body {
+  ($t:ty, $comp_type:ident, $dim:ident) => {
+    VertexComponentFormat {
+      comp_type: Type::$comp_type,
+      dim: Dim::$dim,
+      unit_size: ::std::mem::size_of::<$t>(),
+      align: ::std::mem::align_of::<$t>()
+    }
+  }
+}
+
+macro_rules! impl_vertex_component {
+  ($t:ty, $q:ty, $comp_type:ident, $dim:ident) => {
+    impl VertexComponent for $t {
+      const VERTEX_COMPONENT_FORMAT: VertexComponentFormat = vert_comp_format_body!($q, $comp_type, $dim);
+    }
+  };
+
+
+  ($t:ty, $comp_type:ident, $dim:ident) => {
+    impl_vertex_component!($t, $t, $comp_type, $dim);
+  }
+}
+
+macro_rules! impl_vertex_component_arr {
+  ($t:ty, $q:ident) => {
+    impl_vertex_component!([$t; 1], $t, $q, Dim1);
+    impl_vertex_component!([$t; 2], $t, $q, Dim2);
+    impl_vertex_component!([$t; 3], $t, $q, Dim3);
+    impl_vertex_component!([$t; 4], $t, $q, Dim4);
+  }
+}
+
+macro_rules! impl_vertex {
   ($t:ty, $q:ty, $comp_type:ident, $dim:ident) => {
     impl Vertex for $t {
-      fn vertex_format() -> VertexFormat {
-        vec![VertexComponentFormat {
-          comp_type: Type::$comp_type,
-          dim: Dim::$dim,
-          unit_size: ::std::mem::size_of::<$q>(),
-          align: ::std::mem::align_of::<$q>()
-        }]
-      }
+      const VERTEX_FORMAT: VertexFormat = &[vert_comp_format_body!($q, $comp_type, $dim)];
     }
   };
 
   ($t:ty, $comp_type:ident, $dim:ident) => {
-    impl_base!($t, $t, $comp_type, $dim);
+    impl_vertex!($t, $t, $comp_type, $dim);
   }
 }
 
-macro_rules! impl_arr {
+
+macro_rules! impl_vertex_arr {
   ($t:ty, $q:ident) => {
-    impl_base!([$t; 1], $t, $q, Dim1);
-    impl_base!([$t; 2], $t, $q, Dim2);
-    impl_base!([$t; 3], $t, $q, Dim3);
-    impl_base!([$t; 4], $t, $q, Dim4);
+    impl_vertex!([$t; 1], $t, $q, Dim1);
+    impl_vertex!([$t; 2], $t, $q, Dim2);
+    impl_vertex!([$t; 3], $t, $q, Dim3);
+    impl_vertex!([$t; 4], $t, $q, Dim4);
   }
 }
 
 impl Vertex for () {
-  fn vertex_format() -> VertexFormat {
-    Vec::new()
-  }
+  const VERTEX_FORMAT: VertexFormat = &[];
 }
 
-// scalars
-impl_base!(i8, Integral, Dim1);
-impl_base!(i16, Integral, Dim1);
-impl_base!(i32, Integral, Dim1);
+impl_vertex_component!(i8, Integral, Dim1);
+impl_vertex_component!(i16, Integral, Dim1);
+impl_vertex_component!(i32, Integral, Dim1);
 
-impl_base!(u8, Unsigned, Dim1);
-impl_base!(u16, Unsigned, Dim1);
-impl_base!(u32, Unsigned, Dim1);
+impl_vertex_component!(u8, Unsigned, Dim1);
+impl_vertex_component!(u16, Unsigned, Dim1);
+impl_vertex_component!(u32, Unsigned, Dim1);
 
-impl_base!(f32, Floating, Dim1);
-impl_base!(f64, Floating, Dim1);
+impl_vertex_component!(f32, Floating, Dim1);
+impl_vertex_component!(f64, Floating, Dim1);
 
-impl_base!(bool, Floating, Dim1);
+impl_vertex_component!(bool, Floating, Dim1);
 
-// arrays
-impl_arr!(i8, Integral);
-impl_arr!(i16, Integral);
-impl_arr!(i32, Integral);
+impl_vertex_component_arr!(i8, Integral);
+impl_vertex_component_arr!(i16, Integral);
+impl_vertex_component_arr!(i32, Integral);
 
-impl_arr!(u8, Unsigned);
-impl_arr!(u16, Unsigned);
-impl_arr!(u32, Unsigned);
+impl_vertex_component_arr!(u8, Unsigned);
+impl_vertex_component_arr!(u16, Unsigned);
+impl_vertex_component_arr!(u32, Unsigned);
 
-impl_arr!(f32, Floating);
-impl_arr!(f64, Floating);
+impl_vertex_component_arr!(f32, Floating);
+impl_vertex_component_arr!(f64, Floating);
 
-impl_arr!(bool, Boolean);
+impl_vertex_component_arr!(bool, Boolean);
 
-impl<A, B> Vertex for GTup<A, B> where A: Vertex, B: Vertex {
-  fn vertex_format() -> VertexFormat {
+impl_vertex!(i8, Integral, Dim1);
+impl_vertex!(i16, Integral, Dim1);
+impl_vertex!(i32, Integral, Dim1);
+
+impl_vertex!(u8, Unsigned, Dim1);
+impl_vertex!(u16, Unsigned, Dim1);
+impl_vertex!(u32, Unsigned, Dim1);
+
+impl_vertex!(f32, Floating, Dim1);
+impl_vertex!(f64, Floating, Dim1);
+
+impl_vertex!(bool, Floating, Dim1);
+
+impl_vertex_arr!(i8, Integral);
+impl_vertex_arr!(i16, Integral);
+impl_vertex_arr!(i32, Integral);
+
+impl_vertex_arr!(u8, Unsigned);
+impl_vertex_arr!(u16, Unsigned);
+impl_vertex_arr!(u32, Unsigned);
+
+impl_vertex_arr!(f32, Floating);
+impl_vertex_arr!(f64, Floating);
+
+impl_vertex_arr!(bool, Boolean);
+
+impl<A, B> Vertex for GTup<A, B> where A: VertexComponent, B: Vertex {
+  const VERTEX_FORMAT: VertexFormat =
+    &[
+      vert_comp_format_body!(A, A::VERTEX_COMPONENT_FORMAT::ty()
+      // A,
+      // B
+    ]
     let mut t = A::vertex_format();
     t.extend(B::vertex_format());
     t

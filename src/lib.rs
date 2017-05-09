@@ -1,3 +1,4 @@
+#![feature(associated_consts)]
 #![feature(const_fn)]
 
 //! # What is this?
